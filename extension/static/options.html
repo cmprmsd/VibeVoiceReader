@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>VibeVoice Reader settings</title>
+  <style>
+    body { font: 14px system-ui, sans-serif; margin: 0; padding: 16px; min-width: 360px; color: #1f2937; }
+    h1 { font-size: 16px; margin: 0 0 12px; }
+    label { display: block; margin: 12px 0 4px; font-weight: 600; }
+    input[type=text], select { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .row input { flex: 1; }
+    button { padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer; }
+    button.primary { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+    #status { margin-top: 8px; font-size: 12px; color: #475569; white-space: pre-wrap; }
+    .ok { color: #15803d; } .bad { color: #b91c1c; }
+    .hint { font-size: 12px; color: #64748b; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <h1>VibeVoice Reader</h1>
+  <label for="serverUrl">Server URL</label>
+  <div class="row">
+    <input id="serverUrl" type="text" placeholder="http://127.0.0.1:8877">
+    <button id="test">Test</button>
+  </div>
+  <div class="hint">Start it with <code>make server</code> in the vibevoice-reader repo.</div>
+
+  <label for="voice">Default voice</label>
+  <select id="voice"></select>
+
+  <label for="rate">Playback speed</label>
+  <select id="rate">
+    <option value="0.75">0.75×</option><option value="1">1×</option><option value="1.25">1.25×</option>
+    <option value="1.5">1.5×</option><option value="2">2×</option>
+  </select>
+
+  <label for="inferenceSteps">Diffusion steps (quality vs. speed)</label>
+  <select id="inferenceSteps">
+    <option value="5">5 — model default, fastest</option>
+    <option value="10">10 — try if a voice crackles for you</option>
+    <option value="15">15 — slower, still real-time on a mid-range GPU</option>
+    <option value="20">20 — slowest</option>
+  </select>
+
+  <label for="candidates">Glitch filter (takes per chunk)</label>
+  <select id="candidates">
+    <option value="1">Off — stream every chunk as generated</option>
+    <option value="2">2 takes — regenerate a chunk once if it scores badly (default)</option>
+    <option value="3">3 takes</option>
+  </select>
+  <div class="hint">Applies to chunks generated ahead of playback; the server scores each take for crackle, clicks and dropouts and streams the cleanest. Needs GPU headroom (roughly 2× per extra take).</div>
+
+  <label for="cfgScale">Guidance scale (1.0–2.5)</label>
+  <input id="cfgScale" type="text" placeholder="1.25">
+  <div class="hint">Lower = calmer and cleaner, higher = more expressive but harsher. Default 1.25.</div>
+
+  <label for="chunkMode">Text chunking</label>
+  <select id="chunkMode">
+    <option value="paragraph">Paragraph — more natural flow, estimated sentence highlighting</option>
+    <option value="sentence">Sentence — exact highlighting, slightly choppier</option>
+    <option value="auto">Auto — paragraph for multi-sentence blocks</option>
+  </select>
+
+  <label for="highlightColor">Highlight colour (CSS)</label>
+  <input id="highlightColor" type="text" placeholder="rgba(99, 102, 241, 0.28)">
+
+  <label for="transport">Connection path</label>
+  <select id="transport">
+    <option value="relay">Through the extension background (default, most robust)</option>
+    <option value="direct">Directly from the page (slightly lower latency)</option>
+  </select>
+
+  <div style="margin-top:16px" class="row">
+    <button id="save" class="primary">Save</button>
+    <span id="status"></span>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>

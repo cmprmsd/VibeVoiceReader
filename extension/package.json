@@ -1,0 +1,26 @@
+{
+  "name": "vibevoice-reader-extension",
+  "version": "0.4.4",
+  "private": false,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "start": "web-ext run --source-dir dist --start-url https://en.wikipedia.org/wiki/Text-to-speech",
+    "lint": "web-ext lint --source-dir dist",
+    "package": "npm run build && web-ext build --source-dir dist --overwrite-dest",
+    "typecheck": "tsc --noEmit",
+    "selftest:build": "VV_SELFTEST=1 node build.mjs",
+    "selftest": "npm run selftest:build && web-ext run --source-dir dist --no-input --start-url 'https://example.com/?vv-selftest=1' --pref devtools.console.stdout.content=true --pref devtools.console.stdout.chrome=true --pref media.autoplay.default=0 --pref media.autoplay.blocking_policy=0 --pref extensions.originControls.grantByDefault=true"
+  },
+  "devDependencies": {
+    "@types/firefox-webext-browser": "^120.0.4",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.6.0",
+    "web-ext": "^8.3.0"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "lamejs": "^1.2.1"
+  }
+}

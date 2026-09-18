@@ -1,0 +1,70 @@
+{
+  "manifest_version": 3,
+  "name": "VibeVoice Reader",
+  "version": "0.4.4",
+  "description": "Read any web page aloud with a local VibeVoice server: floating player, follow-along highlighting, many voices. See https://github.com/cmprmsd/VibeVoiceReader to setup the server part.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "vibevoice-reader@local",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    },
+    "gecko_android": {
+      "strict_min_version": "142.0"
+    }
+  },
+  "icons": {
+    "48": "icons/icon.svg",
+    "96": "icons/icon.svg"
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "menus",
+    "tabs",
+    "downloads"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "action": {
+    "default_title": "VibeVoice Reader (Alt+Shift+V)",
+    "default_icon": "icons/icon.svg"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+V"
+      },
+      "description": "Toggle the reader"
+    },
+    "read-selection": {
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
+      "description": "Read the selected text"
+    }
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  }
+}

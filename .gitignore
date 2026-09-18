@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+node_modules/
+extension/dist/
+web-ext-artifacts/
+*.wav
+.cache/
+.mozilla-signing
+build/
+extension/src/vendor/lame.js
+.venv-qwen/
+.venv-moss/
+*.local.md

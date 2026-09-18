@@ -1,0 +1,10 @@
+.git
+.venv
+.venv-*
+build
+extension/node_modules
+extension/dist
+extension/web-ext-artifacts
+**/__pycache__
+**/*.egg-info
+.mozilla-signing
