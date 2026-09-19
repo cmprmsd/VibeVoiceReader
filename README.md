@@ -49,8 +49,10 @@ Needs the NVIDIA Container Toolkit for GPU access (`DEVICE: cpu` in
 the realtime presets including the experimental voices, a set of reference
 clips and Kokoro. Models download on first start into the `data` volume.
 Engines, quantization and the default model are environment variables in
-`compose.yml`; Qwen3-TTS and MOSS-TTS are not part of the image and show as
-"not installed" in the model list.
+`compose.yml`. Qwen3-TTS and MOSS-TTS are built into the image with the
+`ENGINE_QWEN` / `ENGINE_MOSS` build arguments; until then they show as "not
+installed" in the model list. Models are unloaded after ten idle minutes
+(`IDLE_UNLOAD_MIN`) and load again on the next request.
 
 ### Extension
 
@@ -159,6 +161,7 @@ clients queue. Options (`make server ARGS="…"`):
 |---|---|
 | `--models realtime,1.5b` | engines loaded at start; others load on first request |
 | `--default_model`, `--max_loaded` | engine used when the client sends none; engines kept in VRAM |
+| `--idle_unload_min` | free VRAM after this many idle minutes (default 10; 0 never) |
 | `--quant_15b`, `--quant_7b` | `none`, `nf4` or `int8` |
 | `--qwen_model`, `--moss_model` | checkpoints for the worker engines; `--qwen_python`, `--moss_python` point at their environments |
 | `--voices_dir`, `--voice_samples_dir` | realtime presets (`*.pt`); reference clips (`*.wav`) |

@@ -7,6 +7,8 @@ services:
       dockerfile: deploy/Dockerfile
       args:
         EXPERIMENTAL_VOICES: "1"   # extra realtime voices (German, French, Japanese, ...); "0" to skip
+        ENGINE_QWEN: "0"           # "1" builds Qwen3-TTS into the image (+~5 GB)
+        ENGINE_MOSS: "0"           # "1" builds MOSS-TTS Realtime into the image (+~6 GB; needs a 12 GB+ GPU)
     image: vibevoice-reader-server:latest
     ports:
       - "127.0.0.1:8877:8877"       # keep it local; the extension talks to localhost
@@ -15,7 +17,9 @@ services:
       MODELS: realtime              # engines loaded at start: realtime,1.5b,7b
       DEFAULT_MODEL: realtime
       MAX_LOADED: "1"
+      IDLE_UNLOAD_MIN: "10"        # free VRAM after 10 idle minutes; "0" keeps models loaded
       QUANT_7B: nf4
+      # QWEN_MODEL: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice   # default: the 0.6B checkpoint
       # DEVICE: cpu                 # without a GPU (slow)
     volumes:
       - data:/data                  # Hugging Face cache, previews

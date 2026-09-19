@@ -24,6 +24,7 @@ def parse_args(argv=None) -> Settings:
     p.add_argument("--models", default=d.models, help="engines to load at startup, comma-separated: realtime,1.5b,7b (others load on first use)")
     p.add_argument("--default_model", default=d.default_model, choices=["realtime", "1.5b", "7b", "kokoro", "qwen", "moss"])
     p.add_argument("--max_loaded", type=int, default=d.max_loaded, help="engines kept in VRAM at once")
+    p.add_argument("--idle_unload_min", type=float, default=d.idle_unload_min, help="free VRAM after this many idle minutes (0: never)")
     p.add_argument("--voice_samples_dir", default=d.voice_samples_dir, help="folder(s) of *.wav reference clips, separated by ':' (later folders win on equal names)")
     p.add_argument("--model_path_15b", default=None)
     p.add_argument("--model_path_7b", default=None)

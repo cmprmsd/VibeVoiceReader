@@ -442,6 +442,9 @@ export class PlayerUI {
       const opts: [string, string][] = [["", `Server default (${models.default})`]];
       for (const m of models.models) opts.push([m.id, `${m.label} — ~${m.vram_gb} GB${m.loaded ? " · loaded" : m.available === false ? " · not installed" : ""}`]);
       const modelSel = select(opts, current.model ?? "", (v) => cb.onChange({ model: v || null }));
+      for (const o of Array.from(modelSel.options)) {
+        if (models.models.find((m) => m.id === o.value)?.available === false) o.disabled = true;
+      }
       row("Model", modelSel);
       const desc = el("div", "meta", models.models.find((m) => m.id === (current.model ?? models.default))?.description ?? "");
       modelSel.addEventListener("change", () => (desc.textContent = models.models.find((m) => m.id === (modelSel.value || models.default))?.description ?? ""));

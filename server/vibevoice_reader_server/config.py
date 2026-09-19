@@ -42,6 +42,7 @@ class Settings:
     default_model: str = "realtime"
     models: str = "realtime"  # comma-separated engines to load at startup; others load on first use
     max_loaded: int = 1  # engines kept in VRAM at once
+    idle_unload_min: float = 10.0  # unload engines after this many idle minutes; 0 keeps them
     # one or more folders of reference clips (PATH-like, e.g. "/opt/voices:~/.cache/vibevoice-reader/voices")
     voice_samples_dir: Optional[str] = field(default_factory=lambda: str(default_cache_dir() / "voices"))
     model_path_15b: Optional[str] = None

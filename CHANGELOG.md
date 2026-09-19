@@ -6,7 +6,9 @@
   engine unusable or its half-loaded weights in VRAM; flash-attention is only
   tried when installed
 - Engines missing on the server are marked "not installed" in the model list
-- Docker image ships Kokoro and the experimental realtime voices
+- Docker image ships Kokoro and the experimental realtime voices; Qwen3-TTS and
+  MOSS-TTS are build arguments (`ENGINE_QWEN`, `ENGINE_MOSS`)
+- Models are unloaded after idle time (`--idle_unload_min`, default 10)
 
 ## 0.4.3 — 2026-09-19
 

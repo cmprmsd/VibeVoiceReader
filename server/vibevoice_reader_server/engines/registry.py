@@ -95,5 +95,14 @@ class EngineRegistry:
             release_gpu()
             raise RuntimeError(error)
 
+    def unload_all(self) -> List[str]:
+        with self._lock:
+            done = [k for k in self.loaded()]
+            for k in done:
+                self.engines[k].unload()
+            self._recent.clear()
+            release_gpu()
+            return done
+
     def info(self) -> List[dict]:
         return [e.info() for e in self.engines.values()]

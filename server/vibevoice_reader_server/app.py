@@ -32,12 +32,16 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.gpu_lock = asyncio.Lock()
     app.state.waiting = 0
     app.state.started = time.time()
+    app.state.last_activity = time.time()  # GPU work started or finished
     app.state.stops: Dict[str, threading.Event] = {}
 
     @app.on_event("startup")
     async def _startup() -> None:
         for model_id in [m.strip() for m in settings.models.split(",") if m.strip()]:
             await asyncio.to_thread(registry.ensure_loaded, registry.get(model_id))
+        app.state.last_activity = time.time()
+        if settings.idle_unload_min > 0:
+            app.state.idle_task = asyncio.create_task(_idle_unloader(app, settings.idle_unload_min * 60))
 
     async def _engine_for(model_id: Optional[str]) -> BaseEngine:
         """Resolve and load an engine; the caller must hold the GPU lock when loading."""
@@ -65,6 +69,7 @@ def create_app(settings: Settings) -> FastAPI:
             "busy": app.state.gpu_lock.locked(),
             "waiting": app.state.waiting,
             "uptime_s": int(time.time() - app.state.started),
+            "idle_s": int(time.time() - app.state.last_activity),
         }
 
     @app.get("/models")
@@ -307,13 +312,34 @@ async def _release_after(app: FastAPI, run: Optional[SynthRun]) -> None:
         if run is not None and run.thread.is_alive():
             await asyncio.to_thread(run.thread.join)
     finally:
+        app.state.last_activity = time.time()
         app.state.gpu_lock.release()
+
+
+async def _idle_unloader(app: FastAPI, idle_s: float) -> None:
+    """Free VRAM when nothing has used the GPU for `idle_s`; the next request loads again."""
+    registry = app.state.registry
+    while True:
+        await asyncio.sleep(min(30.0, idle_s / 4))
+        idle = time.time() - app.state.last_activity
+        if idle < idle_s or not registry.loaded() or app.state.gpu_lock.locked() or app.state.waiting:
+            continue
+        await app.state.gpu_lock.acquire()  # not via _gpu: that would count as activity
+        try:
+            if time.time() - app.state.last_activity < idle_s:  # someone slipped in while we waited
+                continue
+            unloaded = await asyncio.to_thread(registry.unload_all)
+            if unloaded:
+                print(f"[registry] idle for {idle / 60:.0f} min, unloaded {', '.join(unloaded)}")
+        finally:
+            app.state.gpu_lock.release()
 
 
 async def _acquire(app: FastAPI) -> None:
     app.state.waiting += 1
     try:
         await app.state.gpu_lock.acquire()
+        app.state.last_activity = time.time()
     finally:
         app.state.waiting -= 1
 
@@ -328,10 +354,12 @@ class _gpu:
         self.app.state.waiting += 1
         try:
             await self.app.state.gpu_lock.acquire()
+            self.app.state.last_activity = time.time()
         finally:
             self.app.state.waiting -= 1
 
     async def __aexit__(self, *exc):
+        self.app.state.last_activity = time.time()
         self.app.state.gpu_lock.release()
 
 
