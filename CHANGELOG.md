@@ -1,10 +1,6 @@
 # Changelog
 
-## 0.4.5 — 2026-09-19
-
-- 
-
-## 0.4.4 — 2026-09-19
+## 0.4.5 — 2026-09-20
 
 - A failed model load (e.g. 1.5B without flash-attention) no longer leaves the
   engine unusable or its half-loaded weights in VRAM; flash-attention is only
@@ -22,7 +18,8 @@
 - Exports no longer end with an empty file: the server sends keepalive events
   while it is still choosing a take, so Firefox keeps the extension's
   background page (and with it the connection) alive; a dropped connection is
-  reported and retried once instead of being saved as silence
+  reported and retried once instead of being saved as silence; the same
+  keepalive covers a model load that a request triggers
 - The realtime model no longer prints its progress bar into the server log
 
 ## 0.4.3 — 2026-09-19
