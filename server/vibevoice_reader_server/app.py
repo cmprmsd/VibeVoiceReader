@@ -131,12 +131,14 @@ def create_app(settings: Settings) -> FastAPI:
     # Same events as the WebSocket, framed as: 1 byte type (1=JSON, 2=PCM16),
     # 4 byte little-endian length, payload.  Browsers' extension contexts block
     # plain ws:// but allow http://127.0.0.1, so this is the extension's path.
-    @app.post("/tts/stream")
+    @app.api_route("/tts/stream", methods=["POST", "GET"])
     async def tts_stream(request: Request):
+        # GET with the request JSON in `?req=` exists for clients whose browser blocks
+        # POST to a LAN address (seen on Firefox for Android); same semantics.
         try:
-            req = await request.json()
-        except json.JSONDecodeError as exc:
-            raise HTTPException(400, f"expected JSON body: {exc}")
+            req = json.loads(request.query_params["req"]) if request.method == "GET" else await request.json()
+        except (json.JSONDecodeError, KeyError) as exc:
+            raise HTTPException(400, f"expected JSON body (or ?req= on GET): {exc}")
         text = str(req.get("text", ""))
         if not text.strip():
             raise HTTPException(400, "empty text")
@@ -210,7 +212,7 @@ def create_app(settings: Settings) -> FastAPI:
             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no", "X-Request-Id": req_id},
         )
 
-    @app.post("/tts/stop/{req_id}")
+    @app.api_route("/tts/stop/{req_id}", methods=["POST", "GET"])
     async def tts_stop(req_id: str) -> Dict[str, Any]:
         ev = app.state.stops.get(req_id)
         if ev:

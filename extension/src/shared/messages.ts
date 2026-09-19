@@ -84,6 +84,7 @@ export type TtsEvent =
 /** content -> background one-shot requests */
 export type BgRequest =
   | { type: "health" }
+  | { type: "probe" }
   | { type: "voices"; model?: string | null }
   | { type: "models" }
   | { type: "loadModel"; model: string }

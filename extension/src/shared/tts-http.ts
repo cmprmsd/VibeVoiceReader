@@ -18,6 +18,52 @@ export interface StreamHandle {
   abort: () => void;
 }
 
+/** Servers (by base URL) where POST failed at the network level; GET is used from then on. */
+const postBlocked = new Set<string>();
+
+/**
+ * Start a stream: POST with the JSON body, or GET with `?req=` when POST cannot be
+ * sent at all (Firefox for Android has been seen to block POST to a LAN address
+ * from the extension while GET goes through).
+ */
+async function openStream(base: string, body: string, signal: AbortSignal): Promise<Response> {
+  const get = () => fetch(`${base}/tts/stream?req=${encodeURIComponent(body)}`, { signal, cache: "no-store" });
+  if (postBlocked.has(base)) return get();
+  try {
+    return await fetch(`${base}/tts/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=UTF-8" }, // simple request: no preflight
+      body,
+      signal,
+      cache: "no-store",
+    });
+  } catch (e) {
+    if (signal.aborted) throw e;
+    const res = await get(); // throws the GET error if that fails as well
+    postBlocked.add(base);
+    return res;
+  }
+}
+
+/** Which request methods reach the server (settings → Test). */
+export async function probeServer(serverUrl: string): Promise<string> {
+  const base = normalizeServerUrl(serverUrl);
+  const tryIt = async (label: string, run: () => Promise<Response>) => {
+    try {
+      const r = await run();
+      return `${label} ${r.status < 500 ? "ok" : `HTTP ${r.status}`}`;
+    } catch (e) {
+      return `${label} FAILED (${(e as Error).message})`;
+    }
+  };
+  return [
+    await tryIt("GET", () => fetch(`${base}/health`, { cache: "no-store" })),
+    await tryIt("POST", () => fetch(`${base}/tts/stop/probe`, { method: "POST", cache: "no-store" })),
+    await tryIt("POST+body", () => fetch(`${base}/tts/stream`, { method: "POST", headers: { "Content-Type": "text/plain;charset=UTF-8" }, body: "{}", cache: "no-store" })),
+    await tryIt("GET stream", () => fetch(`${base}/tts/stream?req=%7B%7D`, { cache: "no-store" })),
+  ].join(" · ");
+}
+
 export function streamTts(serverUrl: string, req: TtsRequest, h: StreamHandlers): StreamHandle {
   const base = normalizeServerUrl(serverUrl);
   const id = crypto.randomUUID();
@@ -32,16 +78,7 @@ export function streamTts(serverUrl: string, req: TtsRequest, h: StreamHandlers)
   void (async () => {
     let res: Response;
     try {
-      res = await fetch(`${base}/tts/stream`, {
-        method: "POST",
-        // text/plain keeps this a "simple" request: no CORS preflight.  Firefox for
-        // Android blocks the preflight to a LAN server before it is even sent, while
-        // simple requests go through; the server parses the JSON body regardless.
-        headers: { "Content-Type": "text/plain;charset=UTF-8" },
-        body: JSON.stringify({ ...req, id }),
-        signal: controller.signal,
-        cache: "no-store",
-      });
+      res = await openStream(base, JSON.stringify({ ...req, id }), controller.signal);
     } catch (e) {
       finish({ event: "error", message: `Cannot reach ${base}: ${(e as Error).message}` });
       return;
@@ -73,7 +110,7 @@ export function streamTts(serverUrl: string, req: TtsRequest, h: StreamHandlers)
 
   return {
     stop: () => {
-      void fetch(`${base}/tts/stop/${id}`, { method: "POST" }).catch(() => undefined);
+      void fetch(`${base}/tts/stop/${id}`, { method: postBlocked.has(base) ? "GET" : "POST" }).catch(() => undefined);
     },
     abort: () => controller.abort(),
   };

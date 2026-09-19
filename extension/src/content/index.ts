@@ -280,13 +280,16 @@ class Reader {
           },
           onTestServer: async (url) => {
             await this.update({ serverUrl: url });
+            // which request methods get through from this browser (some block POST to LAN hosts)
+            const probe = (await browser.runtime.sendMessage({ type: "probe" } satisfies BgRequest).catch((e) => `probe failed: ${e}`)) as string;
+            log("probe", probe);
             try {
               const h = (await browser.runtime.sendMessage({ type: "health" } satisfies BgRequest)) as { model: string; device: string; attn: string; voices: number };
               await this.loadVoices();
-              return `OK — ${h.model.split("/").pop()} on ${h.device} (${h.attn}), ${h.voices} voices`;
+              return `OK — ${h.model.split("/").pop()} on ${h.device} (${h.attn}), ${h.voices} voices · ${probe}`;
             } catch (e) {
               const allowed = await browser.runtime.sendMessage({ type: "hasPermission" } satisfies BgRequest).catch(() => true);
-              return allowed ? `Cannot reach ${url}` : "Not allowed: grant access in the extension settings";
+              return `${allowed ? `Cannot reach ${url}` : "Not allowed: grant access in the extension settings"} · ${probe}`;
             }
           },
           onOpenExtensionSettings: () => void browser.runtime.sendMessage({ type: "openOptions" } satisfies BgRequest),

@@ -1,6 +1,6 @@
 import type { BgRequest, ContentCommand, TtsPortIn, TtsPortOut } from "./shared/messages";
 import { hasServerPermission, loadSettings, normalizeServerUrl, requestServerPermission } from "./shared/settings";
-import { streamTts, type StreamHandle } from "./shared/tts-http";
+import { probeServer, streamTts, type StreamHandle } from "./shared/tts-http";
 
 declare const __SELFTEST__: boolean;
 
@@ -71,6 +71,8 @@ browser.runtime.onMessage.addListener((msg: BgRequest, _sender) => {
   switch (msg.type) {
     case "health":
       return fetchJson("/health");
+    case "probe":
+      return loadSettings().then((s) => probeServer(s.serverUrl));
     case "hasPermission":
       return loadSettings().then((s) => hasServerPermission(s.serverUrl));
     case "voices":
