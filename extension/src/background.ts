@@ -6,8 +6,10 @@ declare const __SELFTEST__: boolean;
 
 const MENU_ID = "vibevoice-read-selection";
 
+// Firefox for Android has neither the menus nor the commands API; touching them
+// there throws and would abort this script before the message listeners exist.
 browser.runtime.onInstalled.addListener(() => {
-  browser.menus.create({
+  browser.menus?.create({
     id: MENU_ID,
     title: "Read selection with VibeVoice",
     contexts: ["selection"],
@@ -52,12 +54,12 @@ browser.action.onClicked.addListener((tab) => {
   if (tab.id !== undefined) void granted.then(() => sendToTab(tab.id!, { type: "toggle" }));
 });
 
-browser.menus.onClicked.addListener((info, tab) => {
+browser.menus?.onClicked.addListener((info, tab) => {
   const granted = ensureServerPermission();
   if (info.menuItemId === MENU_ID && tab?.id !== undefined) void granted.then(() => sendToTab(tab.id!, { type: "readSelection" }));
 });
 
-browser.commands.onCommand.addListener((command) => {
+browser.commands?.onCommand.addListener((command) => {
   if (command !== "read-selection") return;
   const granted = ensureServerPermission();
   void browser.tabs.query({ active: true, currentWindow: true }).then(async ([tab]) => {
