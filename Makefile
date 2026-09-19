@@ -106,9 +106,12 @@ ext-publish-public:
 	  npx web-ext sign --source-dir dist --channel listed --amo-metadata amo-metadata.json \
 	    --upload-source-code web-ext-artifacts/source-$$(node -p "require('./static/manifest.json').version").zip
 
-ext-sign:         ## sign an UNLISTED (self-distributed) build for install from a file; not shown on addons.mozilla.org
+ext-sign:         ## sign an UNLISTED build for install from a file; SIGN_VERSION=0.4.6.1 signs under another version (a listed version cannot be reused)
 	@test -f "$(SIGNING_ENV)" || { echo "missing $(SIGNING_ENV) (AMO_JWT_ISSUER=… / AMO_JWT_SECRET=…)"; exit 1; }
-	cd extension && npm run build && set -a && . "$(SIGNING_ENV)" && set +a && \
+	@cur=$$(node -p "require('./extension/static/manifest.json').version"); v="$${SIGN_VERSION:-$$cur}"; \
+	  trap 'sed -i "s/\"version\": \"$$v\"/\"version\": \"$$cur\"/" extension/static/manifest.json' EXIT; \
+	  sed -i "s/\"version\": \"$$cur\"/\"version\": \"$$v\"/" extension/static/manifest.json; \
+	  cd extension && npm run build && set -a && . "$(SIGNING_ENV)" && set +a && \
 	  WEB_EXT_API_KEY="$$AMO_JWT_ISSUER" WEB_EXT_API_SECRET="$$AMO_JWT_SECRET" \
 	  npx web-ext sign --source-dir dist --channel unlisted
 	@echo "signed: $$(ls -t extension/web-ext-artifacts/*.xpi | head -1)"
