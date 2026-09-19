@@ -1,11 +1,14 @@
 # Changelog
 
-## 0.4.6 — 2026-09-20
+## 0.4.7 — 2026-09-20
 
 - Firefox for Android: the background script no longer aborts at startup
   (the context-menu and keyboard-shortcut APIs do not exist there), which had
   made every request from the player fail; the settings' Test button now also
   reports which request paths get through
+
+## 0.4.6 — 2026-09-20
+
 - Qwen3-TTS and MOSS-TTS streams no longer stall at the end of a sentence when
   the last frames arrive together (the worker pipe is now read by a thread)
 - The keepalive that protects long exports also covers a model load that a

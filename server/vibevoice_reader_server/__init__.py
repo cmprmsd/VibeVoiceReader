@@ -1,3 +1,3 @@
 """Local VibeVoice-Realtime TTS server for the VibeVoice Reader extension."""
 
-__version__ = "0.4.6"
+__version__ = "0.4.7"
