@@ -23,6 +23,7 @@ export interface ExportProgress {
   message?: string;
 }
 
+declare const __SELFTEST__: boolean;
 const SR = 24000;
 const GAP_SENTENCE = 0.25;
 const GAP_PARAGRAPH = 0.6;
@@ -67,8 +68,16 @@ export class ExportJob {
       for (let i = 0; i < this.chunks.length; i++) {
         if (this.cancelled) return report(i, "cancelled");
         report(i, "synthesizing");
-        const pcm = await this.synth(this.chunks[i].text, (partial) => report(i, "synthesizing", partial));
+        let pcm: Float32Array;
+        try {
+          pcm = await this.synth(this.chunks[i].text, (partial) => report(i, "synthesizing", partial));
+        } catch (e) {
+          if (this.cancelled) throw e;
+          // one retry per chunk: a dropped relay or a request cancelled mid-switch
+          pcm = await this.synth(this.chunks[i].text, (partial) => report(i, "synthesizing", partial));
+        }
         const trimmed = trimSilence(pcm);
+        if (__SELFTEST__) console.log("[vv-selftest] export chunk", i, "pcm", pcm.length, "trimmed", trimmed.length);
         if (i > 0) {
           const paragraphBreak = this.chunks[i].sentences[0].para !== this.chunks[i - 1].sentences[0].para;
           parts.push(new Float32Array(Math.round(SR * (paragraphBreak ? GAP_PARAGRAPH : GAP_SENTENCE))));
@@ -77,6 +86,7 @@ export class ExportJob {
         seconds += trimmed.length / SR;
       }
       if (this.cancelled) return report(this.chunks.length, "cancelled");
+      if (seconds <= 0) throw new Error("the server sent no audio");
       report(this.chunks.length, "encoding");
       let data: ArrayBuffer;
       let mime: string;
@@ -101,6 +111,7 @@ export class ExportJob {
     return new Promise((resolve, reject) => {
       const buf: Float32Array[] = [];
       let total = 0;
+      let finished = false;
       this.abortCurrent = () => reject(new Error("cancelled"));
       this.session = startTts(
         {
@@ -115,8 +126,11 @@ export class ExportJob {
         this.settings,
         {
           onEvent: (ev: TtsEvent) => {
+            if (__SELFTEST__ && ev.event !== "progress") console.log("[vv-selftest] export event", ev.event, "samples", total);
             if (ev.event === "error") reject(new Error(ev.message));
-            else if (ev.event === "done" || ev.event === "closed") {
+            else if (ev.event === "closed" && !finished) reject(new Error(`connection closed before the audio was complete (${ev.reason ?? "no reason"})`));
+            else if (ev.event === "done") {
+              finished = true;
               const out = new Float32Array(total);
               let o = 0;
               for (const b of buf) {

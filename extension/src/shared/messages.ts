@@ -74,6 +74,7 @@ export type TtsEvent =
   | { event: "progress"; window: number; tokens: number; samples: number; char: number | null }
   | { event: "quality"; score: number; candidates: number; scores: number[] }
   | { event: "stats"; seconds: number; elapsed_ms: number; rtf: number }
+  | { event: "ping" }
   | { event: "loading"; model: string; label: string }
   | { event: "accepted"; id: string }
   | { event: "done"; samples: number; seconds: number; elapsed_ms: number; rtf: number | null; stopped: boolean; candidates?: number }

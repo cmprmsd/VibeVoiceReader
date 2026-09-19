@@ -164,7 +164,15 @@ def create_app(settings: Settings) -> FastAPI:
                         await asyncio.to_thread(registry.ensure_loaded, engine)
                     run = SynthRun(engine, text, voice, cfg, steps, stop_event, candidates, may_continue=lambda: app.state.waiting == 0, lang=lang)
                     stats = _Stats(engine, req_id, text)
-                    async for ev in run.events():
+                    while True:
+                        ev = await run.next(KEEPALIVE_S)
+                        if ev is None:
+                            # Keeps the browser's extension background page (and proxies) alive while
+                            # the engine is still choosing a take or a slow model has not produced audio.
+                            yield _frame_json({"event": "ping"})
+                            continue
+                        if ev is run.END:
+                            break
                         if ev.kind == "audio":
                             if not stop_event.is_set():
                                 yield _frame_audio(ev.audio or b"")
@@ -295,7 +303,7 @@ class _Stats:
         if self.first is None:
             self.first = now
         self.seconds += nbytes / 2 / self.engine.sample_rate
-        if now - self.last_event < 2.0 or self.seconds <= 0:
+        if now - self.last_event < 2.0 or self.seconds < 2.0:  # too early to be meaningful (best-of-N flushes late)
             return None
         self.last_event = now
         elapsed = now - self.t0
@@ -311,14 +319,19 @@ class _Stats:
         print(f"{self.tag}: done, {data.get('seconds', 0)} s audio for {self.chars} chars in {data.get('elapsed_ms', 0) / 1000:.1f} s, rtf {rtf if rtf is not None else '-'}{first}{' (stopped)' if data.get('stopped') else ''}")
 
 
+KEEPALIVE_S = 5.0
+
+
 class SynthRun:
     """engine.synthesize() in a worker thread, consumed as an async iterator."""
+
+    END = object()
 
     def __init__(self, engine: BaseEngine, text: str, voice: Optional[str], cfg: Optional[float], steps: Optional[int], stop_event: threading.Event, candidates: int = 1, may_continue: Optional[Callable[[], bool]] = None, lang: Optional[str] = None):
         self.stop_event = stop_event
         self.loop = asyncio.get_running_loop()
         self.q: "asyncio.Queue[Any]" = asyncio.Queue()
-        self._end = object()
+        self._end = SynthRun.END
 
         def worker() -> None:
             try:
@@ -343,6 +356,13 @@ class SynthRun:
             if ev is self._end:
                 return
             yield ev
+
+    async def next(self, timeout: float) -> Any:
+        """Next event, `END` when finished, or None when nothing arrived within `timeout`."""
+        try:
+            return await asyncio.wait_for(self.q.get(), timeout)
+        except asyncio.TimeoutError:
+            return None
 
 
 async def _release_after(app: FastAPI, run: Optional[SynthRun]) -> None:
