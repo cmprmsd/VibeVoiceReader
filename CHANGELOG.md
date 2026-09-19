@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.5 — 2026-09-19
+
+- 
+
 ## 0.4.4 — 2026-09-19
 
 - A failed model load (e.g. 1.5B without flash-attention) no longer leaves the
@@ -12,6 +16,8 @@
 - The player shows the server's generation speed (RTF) while reading; the
   server logs it a few seconds into each request and at the end
 - Switching models shows the new voice list at once
+- Qwen3-TTS and MOSS-TTS streams no longer stall at the end of a sentence when
+  the last frames arrive together (the worker pipe is now read by a thread)
 - Cancel in the export dialog stops the export
 - Exports no longer end with an empty file: the server sends keepalive events
   while it is still choosing a take, so Firefox keeps the extension's

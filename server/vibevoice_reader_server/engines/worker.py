@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import os
-import select
+import queue
 import subprocess
 import threading
 import time
@@ -91,6 +91,11 @@ class WorkerEngine(BaseEngine):
             env=env,
             cwd=str(REPO_ROOT),
         )
+        # A thread blocks on the pipe and hands frames over a queue.  Waiting with select()
+        # on the BufferedReader is wrong: a frame already sitting in its buffer is invisible
+        # to select, which stalled the stream whenever two frames arrived together.
+        self._frames: "queue.Queue[Optional[tuple[int, bytes]]]" = queue.Queue()
+        threading.Thread(target=self._pump, args=(self.proc.stdout, self._frames), daemon=True).start()
         reply = self._request({"cmd": "load"})
         if not reply.get("ok"):
             self.unload()
@@ -126,21 +131,31 @@ class WorkerEngine(BaseEngine):
         self.proc.stdin.write((json.dumps(obj) + "\n").encode())
         self.proc.stdin.flush()
 
-    def _wait_readable(self, timeout: float) -> bool:
-        """False if the worker produced nothing for `timeout` seconds (hung or prompting)."""
-        assert self.proc and self.proc.stdout
-        ready, _, _ = select.select([self.proc.stdout], [], [], timeout)
-        return bool(ready)
+    @staticmethod
+    def _pump(stream, frames: "queue.Queue[Optional[tuple[int, bytes]]]") -> None:
+        while True:
+            fr = read_frame(stream)
+            frames.put(fr)
+            if fr is None:  # pipe closed: worker exited
+                return
+
+    _TIMEOUT = object()
+
+    def _next_frame(self, timeout: float):
+        """Next frame, None when the worker exited, or `_TIMEOUT` after `timeout` seconds of silence."""
+        try:
+            return self._frames.get(timeout=timeout)
+        except queue.Empty:
+            return self._TIMEOUT
 
     def _request(self, obj: Dict[str, Any], timeout: float = 900.0) -> Dict[str, Any]:
         """Send a command and read one JSON frame."""
         with self._io_lock:
             self._send(obj)
-            assert self.proc and self.proc.stdout
             while True:
-                if not self._wait_readable(timeout):
+                fr = self._next_frame(timeout)
+                if fr is self._TIMEOUT:
                     return {"ok": False, "error": f"worker did not answer within {int(timeout)} s"}
-                fr = read_frame(self.proc.stdout)
                 if fr is None:
                     return {"ok": False, "error": "worker exited"}
                 kind, payload = fr
@@ -175,11 +190,11 @@ class WorkerEngine(BaseEngine):
                 if stop.is_set() and not stop_sent:
                     self._send({"cmd": "stop", "id": req_id})
                     stop_sent = True
-                if not self._wait_readable(300.0):
+                fr = self._next_frame(300.0)
+                if fr is self._TIMEOUT:
                     yield Event("error", {"message": f"{self.id} worker produced no audio for 5 minutes"})
                     self.unload()
                     return
-                fr = read_frame(self.proc.stdout)
                 if fr is None:
                     yield Event("error", {"message": f"{self.id} worker exited"})
                     self.unload()
