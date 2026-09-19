@@ -34,7 +34,10 @@ export function streamTts(serverUrl: string, req: TtsRequest, h: StreamHandlers)
     try {
       res = await fetch(`${base}/tts/stream`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        // text/plain keeps this a "simple" request: no CORS preflight.  Firefox for
+        // Android blocks the preflight to a LAN server before it is even sent, while
+        // simple requests go through; the server parses the JSON body regardless.
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
         body: JSON.stringify({ ...req, id }),
         signal: controller.signal,
         cache: "no-store",

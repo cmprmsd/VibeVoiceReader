@@ -2,6 +2,8 @@
 
 ## 0.4.6 — 2026-09-20
 
+- Reading works on Firefox for Android with a server on the LAN: the stream
+  request no longer needs a CORS preflight, which Android blocked
 - Qwen3-TTS and MOSS-TTS streams no longer stall at the end of a sentence when
   the last frames arrive together (the worker pipe is now read by a thread)
 - The keepalive that protects long exports also covers a model load that a

@@ -26,6 +26,13 @@ def create_app(settings: Settings) -> FastAPI:
     app.add_middleware(
         CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
     )
+
+    @app.middleware("http")
+    async def _private_network(request: Request, call_next):
+        # Browsers with private-network access checks (the server usually sits on a LAN)
+        response = await call_next(request)
+        response.headers["Access-Control-Allow-Private-Network"] = "true"
+        return response
     registry = EngineRegistry(settings)
     app.state.settings = settings
     app.state.registry = registry
