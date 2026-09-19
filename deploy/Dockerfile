@@ -23,6 +23,21 @@ ARG TORCH_INDEX=https://download.pytorch.org/whl/cu130
 RUN pip install --index-url "${TORCH_INDEX}" torch \
     && pip install -e "/opt/VibeVoice[streamingtts]" bitsandbytes
 
+# Optional worker engines, each in its own environment (several GB each; compose.yml sets the flags).
+ARG ENGINE_QWEN=0
+RUN if [ "${ENGINE_QWEN}" = "1" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends sox && rm -rf /var/lib/apt/lists/* \
+      && python -m venv /opt/venv-qwen \
+      && /opt/venv-qwen/bin/pip install --index-url "${TORCH_INDEX}" torch \
+      && /opt/venv-qwen/bin/pip install faster-qwen3-tts "transformers==5.16.1" librosa; fi
+
+ARG ENGINE_MOSS=0
+ARG MOSS_REV=main
+RUN if [ "${ENGINE_MOSS}" = "1" ]; then \
+      git clone --depth 1 --branch "${MOSS_REV}" https://github.com/OpenMOSS/MOSS-TTS.git /opt/moss-tts \
+      && python -m venv /opt/venv-moss \
+      && /opt/venv-moss/bin/pip install --extra-index-url https://download.pytorch.org/whl/cu128 -e "/opt/moss-tts[torch-runtime]"; fi
+
 COPY server /opt/server
 RUN pip install -e /opt/server kokoro
 
@@ -38,21 +53,6 @@ RUN if [ "${EXPERIMENTAL_VOICES}" = "1" ]; then bash /opt/VibeVoice/demo/downloa
 # read-only at /opt/voices; a folder mounted at /data/cache/vibevoice-reader/voices adds to them.
 RUN mkdir -p /opt/voices && cd /opt/voices && for v in en-Alice_woman en-Carter_man en-Frank_man en-Maya_woman in-Samuel_man zh-Bowen_man zh-Xinran_woman; do \
       curl -sfL -o "$v.wav" "https://raw.githubusercontent.com/vibevoice-community/VibeVoice/main/demo/voices/$v.wav"; done
-
-# Optional worker engines, each in its own environment (several GB each; compose.yml sets the flags).
-ARG ENGINE_QWEN=0
-RUN if [ "${ENGINE_QWEN}" = "1" ]; then \
-      apt-get update && apt-get install -y --no-install-recommends sox && rm -rf /var/lib/apt/lists/* \
-      && python -m venv /opt/venv-qwen \
-      && /opt/venv-qwen/bin/pip install --index-url "${TORCH_INDEX}" torch \
-      && /opt/venv-qwen/bin/pip install faster-qwen3-tts "transformers==5.16.1" librosa; fi
-
-ARG ENGINE_MOSS=0
-ARG MOSS_REV=main
-RUN if [ "${ENGINE_MOSS}" = "1" ]; then \
-      git clone --depth 1 --branch "${MOSS_REV}" https://github.com/OpenMOSS/MOSS-TTS.git /opt/moss-tts \
-      && python -m venv /opt/venv-moss \
-      && /opt/venv-moss/bin/pip install --extra-index-url https://download.pytorch.org/whl/cu128 -e "/opt/moss-tts[torch-runtime]"; fi
 
 COPY deploy/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh \
