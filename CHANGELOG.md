@@ -9,6 +9,9 @@
 - Docker image ships Kokoro and the experimental realtime voices; Qwen3-TTS and
   MOSS-TTS are build arguments (`ENGINE_QWEN`, `ENGINE_MOSS`)
 - Models are unloaded after idle time (`--idle_unload_min`, default 10)
+- The player shows the server's generation speed (RTF) while reading; the
+  server logs it a few seconds into each request and at the end
+- Switching models shows the new voice list at once
 
 ## 0.4.3 — 2026-09-19
 

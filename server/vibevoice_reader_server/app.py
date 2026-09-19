@@ -163,11 +163,17 @@ def create_app(settings: Settings) -> FastAPI:
                         yield _frame_json({"event": "loading", "model": engine.id, "label": engine.label})
                         await asyncio.to_thread(registry.ensure_loaded, engine)
                     run = SynthRun(engine, text, voice, cfg, steps, stop_event, candidates, may_continue=lambda: app.state.waiting == 0, lang=lang)
+                    stats = _Stats(engine, req_id, text)
                     async for ev in run.events():
                         if ev.kind == "audio":
                             if not stop_event.is_set():
                                 yield _frame_audio(ev.audio or b"")
+                                snap = stats.audio(len(ev.audio or b""))
+                                if snap:
+                                    yield _frame_json({"event": "stats", **snap})
                         else:
+                            if ev.kind == "done":
+                                stats.done(ev.data)
                             yield _frame_json({"event": ev.kind, **ev.data})
                 finally:
                     stop_event.set()
@@ -268,6 +274,43 @@ def create_app(settings: Settings) -> FastAPI:
 
 
 # ------------------------------------------------------------- helpers
+class _Stats:
+    """Generation speed of one request: a `stats` event every 2 s and two log lines.
+
+    rtf = generation time / audio seconds; below 1 the server keeps ahead of playback.
+    """
+
+    def __init__(self, engine: BaseEngine, req_id: str, text: str) -> None:
+        self.engine = engine
+        self.tag = f"[stats:{engine.id}] {req_id[:8]}"
+        self.chars = len(text)
+        self.t0 = time.monotonic()
+        self.first: Optional[float] = None
+        self.seconds = 0.0
+        self.last_event = 0.0
+        self.logged = False
+
+    def audio(self, nbytes: int) -> Optional[Dict[str, Any]]:
+        now = time.monotonic()
+        if self.first is None:
+            self.first = now
+        self.seconds += nbytes / 2 / self.engine.sample_rate
+        if now - self.last_event < 2.0 or self.seconds <= 0:
+            return None
+        self.last_event = now
+        elapsed = now - self.t0
+        snap = {"seconds": round(self.seconds, 2), "elapsed_ms": int(elapsed * 1000), "rtf": round(elapsed / self.seconds, 3)}
+        if not self.logged and elapsed >= 3.0:
+            self.logged = True
+            print(f"{self.tag}: {self.seconds:.1f} s audio after {elapsed:.1f} s, rtf {snap['rtf']:.2f}, first audio {int((self.first - self.t0) * 1000)} ms")
+        return snap
+
+    def done(self, data: Dict[str, Any]) -> None:
+        rtf = data.get("rtf")
+        first = f", first audio {int((self.first - self.t0) * 1000)} ms" if self.first is not None else ""
+        print(f"{self.tag}: done, {data.get('seconds', 0)} s audio for {self.chars} chars in {data.get('elapsed_ms', 0) / 1000:.1f} s, rtf {rtf if rtf is not None else '-'}{first}{' (stopped)' if data.get('stopped') else ''}")
+
+
 class SynthRun:
     """engine.synthesize() in a worker thread, consumed as an async iterator."""
 

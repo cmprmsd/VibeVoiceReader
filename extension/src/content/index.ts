@@ -211,6 +211,9 @@ class Reader {
           this.ui.setNavEnabled(index > 0, index < total - 1);
           if (s) log("sentence", index, JSON.stringify(s.text.slice(0, 60)));
         },
+        onRtf: (rtf) => {
+          if (this.session === session) this.ui.setRtf(rtf);
+        },
         onTime: (elapsed, total, estimated) => {
           if (this.session === session) this.ui.setTime(elapsed, total, estimated);
         },
@@ -319,10 +322,11 @@ class Reader {
   /** Load the chosen engine now and say clearly whether that worked. */
   private async activateModel(model: string | null): Promise<void> {
     const id = model ?? "";
+    await this.loadVoices(); // the voice list is known before the weights are; show it right away
     this.ui.setStatus(id ? `Loading ${id}…` : "Using the server's default model…");
     try {
       const info = (await browser.runtime.sendMessage({ type: "loadModel", model: id || "realtime" } satisfies BgRequest)) as { label: string; voices: number };
-      await this.loadVoices();
+      await this.loadVoices(); // clip folders are rescanned on load
       this.ui.setStatus(`${info.label} ready · ${info.voices} voices`);
       log("model loaded", info.label, info.voices);
     } catch (e) {

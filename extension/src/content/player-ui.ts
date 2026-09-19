@@ -97,6 +97,9 @@ select.rate { max-width: 62px; font-weight: 500; color: #4b5563; }
 select.mode { max-width: 96px; font-weight: 500; color: #4b5563; }
 .counter { font-size: 11px; color: #6b7280; min-width: 54px; text-align: center; }
 .time { font-variant-numeric: tabular-nums; color: #4b5563; min-width: 84px; text-align: center; }
+.rtf { font-variant-numeric: tabular-nums; color: #6b7280; font-size: 11px; min-width: 0; }
+.rtf:empty { display: none; }
+.rtf.slow { color: #dc2626; }
 .sep { width: 1px; height: 22px; background: #e5e7eb; margin: 0 4px; }
 .status { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 6px; white-space: nowrap;
   font-size: 11px; color: #6b7280; background: #fff; padding: 3px 10px; border-radius: 999px; border: 1px solid #e5e7eb; }
@@ -134,7 +137,7 @@ select.mode { max-width: 96px; font-weight: 500; color: #4b5563; }
   .bar, .status { background: #1f2937; color: #f3f4f6; border-color: #374151; }
   button:hover, .voice:hover { background: #374151; }
   button.text { background: #312e81; color: #e0e7ff; }
-  .time, select.rate, select.mode, .counter { color: #d1d5db; } .sep { background: #374151; }
+  .time, select.rate, select.mode, .counter { color: #d1d5db; } .rtf { color: #9ca3af; } .rtf.slow { color: #f87171; } .sep { background: #374151; }
   .dialog { background: #1f2937; color: #f3f4f6; border-color: #374151; }
   .dialog .preview, .dialog .meta, .dialog label { color: #9ca3af; }
   .dialog .progress { background: #374151; }
@@ -155,6 +158,7 @@ export class PlayerUI {
   private counterEl: HTMLElement;
   private avatar: HTMLElement;
   private timeEl: HTMLElement;
+  private rtfEl: HTMLElement;
   private statusEl: HTMLElement;
   private readPageBtn: HTMLButtonElement;
   private dialog: HTMLElement | null = null;
@@ -189,6 +193,8 @@ export class PlayerUI {
     this.nextBtn = iconBtn(ICON.next, "Next sentence", cb.onNext);
     this.stopBtn = iconBtn(ICON.stop, "Stop", cb.onStop);
     this.timeEl = el("span", "time", "0:00 / 0:00");
+    this.rtfEl = el("span", "rtf", "");
+    this.rtfEl.title = "Server generation speed: seconds of computation per second of audio (below 1 keeps ahead of playback)";
 
     this.rateSel = document.createElement("select");
     this.rateSel.className = "rate";
@@ -213,7 +219,7 @@ export class PlayerUI {
     this.statusEl = el("div", "status");
     this.bar.append(
       handle, voiceWrap, el("span", "sep"),
-      this.prevBtn, this.playBtn, this.nextBtn, this.stopBtn, this.timeEl, this.counterEl, this.rateSel, this.modeSel,
+      this.prevBtn, this.playBtn, this.nextBtn, this.stopBtn, this.timeEl, this.rtfEl, this.counterEl, this.rateSel, this.modeSel,
       el("span", "sep"), readSel, this.readPageBtn, pick, exportBtn, settings, close, this.statusEl,
     );
     this.root.append(this.bar);
@@ -286,6 +292,11 @@ export class PlayerUI {
   setTime(posSec: number, totalSec: number, buffering: boolean): void {
     this.timeEl.textContent = `${fmt(posSec)} / ${buffering ? "~" : ""}${fmt(totalSec)}`;
   }
+  /** Latest server generation speed; null hides the badge. */
+  setRtf(rtf: number | null): void {
+    this.rtfEl.textContent = rtf == null ? "" : `RTF ${rtf.toFixed(2)}`;
+    this.rtfEl.classList.toggle("slow", rtf != null && rtf > 1);
+  }
   setStatus(text: string, isError = false): void {
     this.statusEl.textContent = text;
     this.statusEl.classList.toggle("error", isError);
@@ -297,6 +308,7 @@ export class PlayerUI {
     this.stopBtn.disabled = state === "idle";
     if (state === "idle") {
       this.setTime(0, 0, false);
+      this.setRtf(null);
       this.setCounter(0, 0);
     }
   }

@@ -33,6 +33,8 @@ export interface SessionCallbacks {
   onState: (state: SessionState, detail?: string) => void;
   onSentence: (sentence: Sentence | null, index: number, total: number) => void;
   onTime: (elapsedSec: number, totalSec: number, estimated: boolean) => void;
+  /** Server generation speed: seconds of generation per second of audio (latest measurement). */
+  onRtf?: (rtf: number) => void;
 }
 
 const PREFETCH = 3;
@@ -349,12 +351,16 @@ export class ReadingSession {
       case "quality":
         this.log("chunk", i, "quality: best score", ev.score, "of", ev.scores.join("/"), `(${ev.candidates} takes)`);
         break;
+      case "stats":
+        this.cb.onRtf?.(ev.rtf);
+        break;
       case "done":
         u.status = "done";
         u.session?.close();
         u.session = null;
         u.player.finish();
         u.durationSec = ev.seconds;
+        if (ev.rtf != null) this.cb.onRtf?.(ev.rtf);
         this.updateFrames(u, true);
         this.maybeStart(i, u);
         this.learn(u);
