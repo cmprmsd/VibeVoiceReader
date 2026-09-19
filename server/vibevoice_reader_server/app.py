@@ -161,7 +161,12 @@ def create_app(settings: Settings) -> FastAPI:
                         return
                     if not engine.loaded:
                         yield _frame_json({"event": "loading", "model": engine.id, "label": engine.label})
-                        await asyncio.to_thread(registry.ensure_loaded, engine)
+                        load = asyncio.ensure_future(asyncio.to_thread(registry.ensure_loaded, engine))
+                        while not load.done():  # a first load can take minutes: keep the client alive
+                            await asyncio.wait({load}, timeout=KEEPALIVE_S)
+                            if not load.done():
+                                yield _frame_json({"event": "ping"})
+                        load.result()
                     run = SynthRun(engine, text, voice, cfg, steps, stop_event, candidates, may_continue=lambda: app.state.waiting == 0, lang=lang)
                     stats = _Stats(engine, req_id, text)
                     while True:
