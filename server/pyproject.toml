@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vibevoice-reader-server"
-version = "0.4.5"
+version = "0.4.6"
 description = "Local TTS server for the VibeVoice Reader Firefox extension"
 requires-python = ">=3.10"
 dependencies = [

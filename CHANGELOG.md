@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.6 — 2026-09-20
+
+- Qwen3-TTS and MOSS-TTS streams no longer stall at the end of a sentence when
+  the last frames arrive together (the worker pipe is now read by a thread)
+- The keepalive that protects long exports also covers a model load that a
+  request triggers, so a first use of a large model no longer drops the
+  connection
+
 ## 0.4.5 — 2026-09-20
 
 - A failed model load (e.g. 1.5B without flash-attention) no longer leaves the
@@ -12,14 +20,11 @@
 - The player shows the server's generation speed (RTF) while reading; the
   server logs it a few seconds into each request and at the end
 - Switching models shows the new voice list at once
-- Qwen3-TTS and MOSS-TTS streams no longer stall at the end of a sentence when
-  the last frames arrive together (the worker pipe is now read by a thread)
 - Cancel in the export dialog stops the export
 - Exports no longer end with an empty file: the server sends keepalive events
   while it is still choosing a take, so Firefox keeps the extension's
   background page (and with it the connection) alive; a dropped connection is
-  reported and retried once instead of being saved as silence; the same
-  keepalive covers a model load that a request triggers
+  reported and retried once instead of being saved as silence
 - The realtime model no longer prints its progress bar into the server log
 
 ## 0.4.3 — 2026-09-19
