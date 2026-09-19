@@ -8,6 +8,7 @@ import { loadSettings, saveSettings, type ChunkMode, type Settings } from "../sh
 import { ExportJob, FORMAT_LABELS, type ExportFormat } from "./export";
 import { extractArticle, extractFromElement, extractSelection, type Extraction } from "./extract";
 import { Highlighter } from "./highlight";
+import { usesDirect } from "./tts-client";
 import { pickBlock } from "./pick";
 import { PlayerUI } from "./player-ui";
 import { buildChunks, splitSentences } from "./segment";
@@ -286,7 +287,8 @@ class Reader {
             try {
               const h = (await browser.runtime.sendMessage({ type: "health" } satisfies BgRequest)) as { model: string; device: string; attn: string; voices: number };
               await this.loadVoices();
-              return `OK — ${h.model.split("/").pop()} on ${h.device} (${h.attn}), ${h.voices} voices · ${probe}`;
+              const path = usesDirect(this.settings!) ? "direct from page" : "via extension";
+              return `OK — ${h.model.split("/").pop()} on ${h.device} (${h.attn}), ${h.voices} voices · playback ${path} · ${probe}`;
             } catch (e) {
               const allowed = await browser.runtime.sendMessage({ type: "hasPermission" } satisfies BgRequest).catch(() => true);
               return `${allowed ? `Cannot reach ${url}` : "Not allowed: grant access in the extension settings"} · ${probe}`;

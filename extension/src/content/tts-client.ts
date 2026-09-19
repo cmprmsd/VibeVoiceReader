@@ -15,8 +15,17 @@ export interface TtsSession {
 }
 
 export function startTts(req: TtsRequest, settings: Settings, h: TtsHandlers): TtsSession {
-  return settings.transport === "direct" ? direct(req, settings, h) : relay(req, settings, h);
+  return usesDirect(settings) ? direct(req, settings, h) : relay(req, settings, h);
 }
+
+/** "direct" only works when the page may talk to the server: an https page cannot fetch http (mixed content). */
+export function usesDirect(settings: Settings): boolean {
+  if (settings.transport !== "direct") return false;
+  const http = /^http:/i.test(settings.serverUrl.trim()) || !/^https?:/i.test(settings.serverUrl.trim());
+  return !(location.protocol === "https:" && http);
+}
+
+const tag = (ev: TtsEvent, path: string): TtsEvent => (ev.event === "error" ? { ...ev, message: `${ev.message} [${path}]` } : ev);
 
 function relay(req: TtsRequest, settings: Settings, h: TtsHandlers): TtsSession {
   const port = browser.runtime.connect({ name: "tts" });
@@ -26,7 +35,7 @@ function relay(req: TtsRequest, settings: Settings, h: TtsHandlers): TtsSession 
     if (m.type === "audio") h.onAudio(m.pcm);
     else {
       if (m.ev.event === "closed") closed = true;
-      h.onEvent(m.ev);
+      h.onEvent(tag(m.ev, "via extension"));
     }
   });
   port.onDisconnect.addListener(() => {
@@ -60,6 +69,6 @@ function relay(req: TtsRequest, settings: Settings, h: TtsHandlers): TtsSession 
 }
 
 function direct(req: TtsRequest, settings: Settings, h: TtsHandlers): TtsSession {
-  const handle = streamTts(settings.serverUrl, req, h);
+  const handle = streamTts(settings.serverUrl, req, { onAudio: h.onAudio, onEvent: (ev) => h.onEvent(tag(ev, "direct from page")) });
   return { stop: () => handle.stop(), close: () => handle.abort() };
 }
