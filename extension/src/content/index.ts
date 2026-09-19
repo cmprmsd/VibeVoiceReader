@@ -360,6 +360,9 @@ class Reader {
       this.ui.showExportDialog(sentences, label, formats, this.settings.exportFormat, (from, to, format) => {
         void this.update({ exportFormat: format as ExportFormat });
         this.startExport(sentences.slice(from, to + 1), label, true, format as ExportFormat);
+      }, () => {
+        this.exportJob?.cancel();
+        this.exportJob = null;
       });
     });
   }
@@ -440,8 +443,14 @@ class Reader {
         if (this.session || this.selftestStarted) return true; // already running
         this.selftestStarted = true;
         log("selftest start on", location.href);
-        void this.show().then(() => {
+        void this.show().then(async () => {
           log("icon widths", JSON.stringify(this.ui.iconWidths()));
+          const srv = /vv-server=([^&]+)/.exec(location.href);
+          if (srv) {
+            await this.update({ serverUrl: decodeURIComponent(srv[1]) });
+            await this.loadVoices();
+            log("server hook done");
+          }
           if (this.settings && location.href.includes("vv-mode=")) {
             this.settings.chunkMode = (/vv-mode=(\w+)/.exec(location.href)?.[1] ?? "paragraph") as ChunkMode;
           }
@@ -459,11 +468,6 @@ class Reader {
             else this.ui.setStatus("No readable text in that block", true);
             return;
           }
-          const srv = /vv-server=([^&]+)/.exec(location.href);
-          if (srv) {
-            void this.update({ serverUrl: decodeURIComponent(srv[1]) }).then(() => this.loadVoices()).then(() => log("server hook done"));
-            return;
-          }
           if (location.href.includes("vv-settings=1")) {
             this.openSettings();
             log("settings panel opened");
@@ -473,8 +477,20 @@ class Reader {
           if (exp) {
             const lang = document.documentElement.lang || navigator.language || "en";
             const sentences = splitSentences(ex.paragraphs, lang).slice(0, Number(exp[1]));
-            this.ui.showExportDialog(sentences, "selftest", [{ value: "mp3-256", label: "MP3 256" }], "mp3-256", () => undefined);
+            this.ui.showExportDialog(sentences, "selftest", [{ value: "mp3-256", label: "MP3 256" }], "mp3-256", () => undefined, () => {
+              this.exportJob?.cancel();
+              this.exportJob = null;
+            });
             this.startExport(sentences, "selftest", false, "mp3-256");
+            const cancelAt = /vv-cancel=(\d+)/.exec(location.href);
+            if (cancelAt) {
+              setTimeout(() => {
+                const button = this.ui.dialogButton("Cancel");
+                log("clicking", button?.textContent, "job running:", this.exportJob !== null);
+                button?.click();
+                setTimeout(() => log("after cancel: job", this.exportJob === null ? "gone" : "STILL RUNNING"), 3000);
+              }, Number(cancelAt[1]) * 1000);
+            }
             return;
           }
           if (location.href.includes("vv-selectword=1")) {

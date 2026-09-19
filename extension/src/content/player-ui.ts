@@ -332,6 +332,7 @@ export class PlayerUI {
     formats: { value: string; label: string }[],
     defaultFormat: string,
     onStart: (from: number, to: number, format: string) => void,
+    onCancel: () => void = () => undefined,
   ): void {
     this.closeDialog();
     const d = el("div", "dialog");
@@ -377,7 +378,10 @@ export class PlayerUI {
     progress.append(bar);
     const status = el("div", "meta");
     const actions = el("div", "actions");
-    const cancel = btn("Cancel", "Close", () => this.closeDialog(), "text");
+    const cancel = btn("Cancel", "Stop the export and close", () => {
+      onCancel();
+      this.closeDialog();
+    }, "text");
     const start = btn("Export", "Synthesize the range and save it", () => {
       let a = Number(from.value), b = Number(to.value);
       if (a > b) [a, b] = [b, a];
@@ -520,6 +524,11 @@ export class PlayerUI {
   closeDialog(): void {
     this.dialog?.remove();
     this.dialog = null;
+  }
+
+  /** Button of the open dialog with this label (self-test hooks). */
+  dialogButton(label: string): HTMLButtonElement | null {
+    return Array.from(this.dialog?.querySelectorAll("button") ?? []).find((b) => b.textContent === label) ?? null;
   }
 
   private updateAvatar(): void {

@@ -169,6 +169,7 @@ class RealtimeEngine(BaseEngine):
                 audio_streamer=streamer,
                 stop_check_fn=stop_check,
                 verbose=False,
+                show_progress_bar=False,  # keeps tqdm out of the server log
                 refresh_negative=True,
                 all_prefilled_outputs=copy.deepcopy(prompt),
             )

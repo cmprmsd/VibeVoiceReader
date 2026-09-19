@@ -12,6 +12,8 @@
 - The player shows the server's generation speed (RTF) while reading; the
   server logs it a few seconds into each request and at the end
 - Switching models shows the new voice list at once
+- Cancel in the export dialog stops the export
+- The realtime model no longer prints its progress bar into the server log
 
 ## 0.4.3 — 2026-09-19
 

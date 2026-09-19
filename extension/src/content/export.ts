@@ -37,6 +37,7 @@ export const FORMAT_LABELS: Record<ExportFormat, string> = {
 export class ExportJob {
   private cancelled = false;
   private session: TtsSession | null = null;
+  private abortCurrent: (() => void) | null = null;
 
   constructor(
     private chunks: Chunk[],
@@ -47,10 +48,13 @@ export class ExportJob {
     private format: ExportFormat = "mp3-256",
   ) {}
 
+  /** Stops the running request on the server and ends the job at the next step. */
   cancel(): void {
     this.cancelled = true;
     this.session?.stop();
     this.session?.close();
+    this.session = null;
+    this.abortCurrent?.();
   }
 
   async run(): Promise<void> {
@@ -72,6 +76,7 @@ export class ExportJob {
         parts.push(trimmed);
         seconds += trimmed.length / SR;
       }
+      if (this.cancelled) return report(this.chunks.length, "cancelled");
       report(this.chunks.length, "encoding");
       let data: ArrayBuffer;
       let mime: string;
@@ -87,6 +92,7 @@ export class ExportJob {
       await browser.runtime.sendMessage({ type: "download", filename: this.filename, mime, data, saveAs: this.saveAs } satisfies BgRequest);
       report(this.chunks.length, "done");
     } catch (e) {
+      if (this.cancelled) return report(0, "cancelled");
       report(0, "error", 0, (e as Error).message);
     }
   }
@@ -95,6 +101,7 @@ export class ExportJob {
     return new Promise((resolve, reject) => {
       const buf: Float32Array[] = [];
       let total = 0;
+      this.abortCurrent = () => reject(new Error("cancelled"));
       this.session = startTts(
         {
           text,
